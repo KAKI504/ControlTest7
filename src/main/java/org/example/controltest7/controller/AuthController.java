@@ -1,33 +1,24 @@
 package org.example.controltest7.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.example.controltest7.dto.UserRegisterDto;
-import org.example.controltest7.model.User;
+import org.example.controltest7.dto.UserRegistrationDto;
 import org.example.controltest7.service.UserService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class AuthController {
-
     private final UserService userService;
 
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody @Valid UserRegisterDto registerDto) {
-        try {
-            User user = userService.registerUser(registerDto);
-            return ResponseEntity.ok("Пользователь успешно зарегистрирован, ID: " + user.getId());
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    @GetMapping("/test")
-    public ResponseEntity<String> test() {
-        return ResponseEntity.ok("API работает!");
+    public ResponseEntity<String> register(@Valid @RequestBody UserRegistrationDto registrationDto) {
+        userService.registerUser(registrationDto);
+        return ResponseEntity.ok("User registered successfully");
     }
 }

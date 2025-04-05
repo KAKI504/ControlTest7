@@ -1,82 +1,73 @@
 package org.example.controltest7.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.controltest7.dao.AccountDao;
-import org.example.controltest7.dto.AccountDto;
+import org.example.controltest7.dao.UserDao;
+import org.example.controltest7.dto.AccountCreateDto;
+import org.example.controltest7.exception.AccountAlreadyExistsException;
+import org.example.controltest7.exception.AccountNotFoundException;
+import org.example.controltest7.exception.UserNotFoundException;
 import org.example.controltest7.model.Account;
+import org.example.controltest7.model.User;
 import org.example.controltest7.service.AccountService;
-import org.example.controltest7.service.UserService;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AccountServiceImpl implements AccountService {
-
     private final AccountDao accountDao;
-    private final UserService userService;
+    private final UserDao userDao;
 
     @Override
-    public Account createAccount(Long userId, String currency) {
-        userService.findById(userId);
+    @Transactional
+    public void createAccount(String username, AccountCreateDto accountCreateDto) {
+        User user = userDao.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
 
-        int accountCount = accountDao.countAccountsByUserId(userId);
-        if (accountCount >= 3) {
-            throw new RuntimeException("Пользователь не может иметь более 3 счетов");
+        if (accountDao.findByUserIdAndCurrency(user.getId(), accountCreateDto.getCurrency()).isPresent()) {
+            throw new AccountAlreadyExistsException("Account with this currency already exists");
         }
 
-        Account account = new Account();
-        account.setUserId(userId);
-        account.setCurrency(currency);
-        account.setBalance(BigDecimal.ZERO);
+        Account account = Account.builder()
+                .userId(user.getId())
+                .currency(accountCreateDto.getCurrency())
+                .balance(BigDecimal.ZERO)
+                .createdAt(LocalDateTime.now())
+                .build();
 
-        Long accountId = accountDao.createAccount(account);
-        account.setId(accountId);
-
-        return account;
+        accountDao.create(account);
     }
 
     @Override
-    public Account findById(Long accountId) {
-        return accountDao.findById(accountId)
-                .orElseThrow(() -> new RuntimeException("Счет не найден"));
+    public List<Account> getUserAccounts(String username) {
+        User user = userDao.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
+        return accountDao.findByUserId(user.getId());
     }
 
     @Override
-    public List<Account> findByUserId(Long userId) {
-        return accountDao.findByUserId(userId);
-    }
+    public BigDecimal getAccountBalance(String username, Long accountId) {
+        User user = userDao.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
 
-    @Override
-    public void updateBalance(Long accountId, BigDecimal newBalance) {
-        if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
-            throw new RuntimeException("Баланс не может быть отрицательным");
-        }
-        accountDao.updateBalance(accountId, newBalance);
-    }
+        Account account = accountDao.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException("Account not found: " + accountId));
 
-    @Override
-    public Account deposit(Long accountId, BigDecimal amount) {
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Сумма пополнения должна быть положительной");
+        log.info("User ID from DB: {}, Account User ID: {}", user.getId(), account.getUserId());
+
+        if (!account.getUserId().equals(user.getId())) {
+            log.warn("Account {} belongs to user ID {} but accessed by user ID {}",
+                    accountId, account.getUserId(), user.getId());
+            throw new RuntimeException("Account does not belong to user");
         }
 
-        Account account = findById(accountId);
-        BigDecimal newBalance = account.getBalance().add(amount);
-        updateBalance(accountId, newBalance);
-        account.setBalance(newBalance);
-
-        return account;
-    }
-
-    @Override
-    public AccountDto toDto(Account account) {
-        AccountDto dto = new AccountDto();
-        dto.setId(account.getId());
-        dto.setCurrency(account.getCurrency());
-        dto.setBalance(account.getBalance());
-        return dto;
+        return account.getBalance();
     }
 }

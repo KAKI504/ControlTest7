@@ -1,53 +1,68 @@
 package org.example.controltest7.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.example.controltest7.dao.UserDao;
-import org.example.controltest7.dto.UserRegisterDto;
+import org.example.controltest7.dto.UserRegistrationDto;
+import org.example.controltest7.exception.UserAlreadyExistsException;
+import org.example.controltest7.exception.UserNotFoundException;
 import org.example.controltest7.model.User;
+import org.example.controltest7.service.UserService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class UserServiceImpl implements org.example.controltest7.service.UserService {
-
+@Slf4j
+public class UserServiceImpl implements UserService {
     private final UserDao userDao;
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public User registerUser(UserRegisterDto registerDto) {
-        if (userDao.existsByUsername(registerDto.getUsername())) {
-            throw new RuntimeException("Пользователь с таким именем уже существует");
+    @Transactional
+    public void registerUser(UserRegistrationDto registrationDto) {
+        if (userDao.findByUsername(registrationDto.getUsername()).isPresent()) {
+            throw new UserAlreadyExistsException("Username already exists");
+        }
+        if (userDao.findByPhoneNumber(registrationDto.getPhoneNumber()).isPresent()) {
+            throw new UserAlreadyExistsException("Phone number already exists");
         }
 
-        User user = new User();
-        user.setUsername(registerDto.getUsername());
-        user.setPassword(passwordEncoder.encode(registerDto.getPassword()));
-        user.setPhoneNumber(registerDto.getPhoneNumber());
-        user.setEnabled(true);
+        User user = User.builder()
+                .username(registrationDto.getUsername())
+                .phoneNumber(registrationDto.getPhoneNumber())
+                .password(passwordEncoder.encode(registrationDto.getPassword()))
+                .enabled(true)
+                .build();
 
-        Long userId = userDao.saveAndGetId(user);
-        user.setId(userId);
+        userDao.create(user);
 
-        userDao.saveAuthority(registerDto.getUsername(), "ROLE_USER");
+        Long userId = userDao.findByUsername(user.getUsername())
+                .map(User::getId)
+                .orElseThrow(() -> new RuntimeException("Failed to retrieve user after creation"));
 
-        return user;
+        userDao.addUserAuthority(user.getUsername(), "ROLE_USER");
+
+    }
+    @Override
+    public List<User> getAllUsers() {
+        log.info("Getting all users");
+        return userDao.findAllUsers();
     }
 
     @Override
-    public User findByUsername(String username) {
-        return userDao.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+    @Transactional
+    public void blockUser(String username, boolean blocked) {
+        log.info("{}blocking user: {}", blocked ? "" : "Un", username);
+
+        User user = userDao.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
+
+        userDao.blockUser(username, blocked);
+        log.info("User {} has been {}blocked", username, blocked ? "" : "un");
     }
 
-    @Override
-    public User findById(Long id) {
-        return userDao.findById(id)
-                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
-    }
-
-    @Override
-    public boolean existsByUsername(String username) {
-        return userDao.existsByUsername(username);
-    }
 }

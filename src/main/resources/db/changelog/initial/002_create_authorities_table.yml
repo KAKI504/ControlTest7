@@ -1,0 +1,30 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-authorities-table
+      author: student
+      changes:
+        - createTable:
+            tableName: authorities
+            columns:
+              - column:
+                  name: username
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_authorities_users
+                    references: users(username)
+              - column:
+                  name: authority
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+        - addUniqueConstraint:
+            columnNames: username, authority
+            constraintName: ux_username_authority
+            tableName: authorities
+        - createIndex:
+            indexName: idx_authorities_username
+            tableName: authorities
+            columns:
+              - column:
+                  name: username
