@@ -12,4 +12,6 @@ public interface AccountService {
     List<Account> getUserAccounts(String username);
 
     BigDecimal getAccountBalance(String username, Long accountId);
+
+    void depositFunds(String username, Long accountId, BigDecimal amount);
 }

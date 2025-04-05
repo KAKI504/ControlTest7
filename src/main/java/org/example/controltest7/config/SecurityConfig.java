@@ -30,31 +30,31 @@ public class SecurityConfig {
         @Autowired
         public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
                 String fetchUser = "select username, password, enabled " +
-                                "from users " +
-                                "where username = ?";
+                        "from users " +
+                        "where username = ?";
                 String fetchRoles = "select username, authority " +
-                                "from authorities " +
-                                "where username = ?";
+                        "from authorities " +
+                        "where username = ?";
 
                 auth.jdbcAuthentication()
-                                .dataSource(dataSource)
-                                .usersByUsernameQuery(fetchUser)
-                                .authoritiesByUsernameQuery(fetchRoles);
+                        .dataSource(dataSource)
+                        .usersByUsernameQuery(fetchUser)
+                        .authoritiesByUsernameQuery(fetchRoles);
         }
 
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
                 http
-                                .csrf(csrf -> csrf.disable())
-                                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
-                                .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers("/h2-console/**").permitAll()
-                                                .requestMatchers("/api/register").permitAll()
-                                                .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-                                                .anyRequest().authenticated())
-                                .sessionManagement(session -> session
-                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                .httpBasic(Customizer.withDefaults());
+                        .csrf(csrf -> csrf.disable())
+                        .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+                        .authorizeHttpRequests(auth -> auth
+                                .requestMatchers("/h2-console/**").permitAll()
+                                .requestMatchers("/api/register").permitAll()
+                                .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+                                .anyRequest().authenticated())
+                        .sessionManagement(session -> session
+                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        .httpBasic(Customizer.withDefaults());
 
                 return http.build();
         }

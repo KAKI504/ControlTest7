@@ -47,6 +47,7 @@ public class UserServiceImpl implements UserService {
         userDao.addUserAuthority(user.getUsername(), "ROLE_USER");
 
     }
+
     @Override
     public List<User> getAllUsers() {
         log.info("Getting all users");

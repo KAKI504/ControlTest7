@@ -33,39 +33,49 @@ public class TransactionServiceImpl implements TransactionService {
     @Override
     @Transactional
     public void createTransaction(String username, Long fromAccountId, TransactionCreateDto transactionDto) {
-        log.info("Creating transaction from account {} for user {}", fromAccountId, username);
+        log.info("Creating transaction from account {} to account {} for user {}",
+                fromAccountId, transactionDto.getToAccountId(), username);
 
         User user = userDao.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
+        log.info("User found: id={}, username={}", user.getId(), user.getUsername());
 
         Account fromAccount = accountDao.findById(fromAccountId)
                 .orElseThrow(() -> new AccountNotFoundException("Source account not found: " + fromAccountId));
+        log.info("Source account found: id={}, userId={}, currency={}",
+                fromAccount.getId(), fromAccount.getUserId(), fromAccount.getCurrency());
 
-        Account toAccount = accountDao.findById(transactionDto.getToAccountId())
-                .orElseThrow(() -> new AccountNotFoundException(
-                        "Target account not found: " + transactionDto.getToAccountId()));
+        try {
+            Account toAccount = accountDao.findById(transactionDto.getToAccountId())
+                    .orElseThrow(() -> new AccountNotFoundException("Target account not found: " + transactionDto.getToAccountId()));
+            log.info("Target account found: id={}, userId={}, currency={}",
+                    toAccount.getId(), toAccount.getUserId(), toAccount.getCurrency());
 
-        if (!fromAccount.getUserId().equals(user.getId())) {
-            log.warn("User {} trying to access account that doesn't belong to them", username);
-            throw new RuntimeException("Source account does not belong to user");
+            if (!fromAccount.getUserId().equals(user.getId())) {
+                log.warn("User {} trying to access account that doesn't belong to them", username);
+                throw new RuntimeException("Source account does not belong to user");
+            }
+
+            BigDecimal amount = transactionDto.getAmount();
+            if (!fromAccount.getCurrency().equals(toAccount.getCurrency())) {
+                log.info("Multicurrency transaction from {} to {}",
+                        fromAccount.getCurrency(), toAccount.getCurrency());
+            }
+
+            Transaction transaction = Transaction.builder()
+                    .fromAccountId(fromAccountId)
+                    .toAccountId(transactionDto.getToAccountId())
+                    .amount(amount)
+                    .status("PENDING")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            transactionDao.createTransaction(transaction);
+            log.info("Transaction created successfully");
+        } catch (Exception e) {
+            log.error("Error creating transaction: {}", e.getMessage(), e);
+            throw e;
         }
-
-        BigDecimal amount = transactionDto.getAmount();
-        if (!fromAccount.getCurrency().equals(toAccount.getCurrency())) {
-            log.info("Multicurrency transaction from {} to {}",
-                    fromAccount.getCurrency(), toAccount.getCurrency());
-        }
-
-        Transaction transaction = Transaction.builder()
-                .fromAccountId(fromAccountId)
-                .toAccountId(transactionDto.getToAccountId())
-                .amount(amount)
-                .status("PENDING")
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        transactionDao.createTransaction(transaction);
-        log.info("Transaction created successfully");
     }
 
     @Override
@@ -112,6 +122,7 @@ public class TransactionServiceImpl implements TransactionService {
         transactionDao.updateStatus(transactionId, "APPROVED");
         log.info("Transaction {} approved successfully", transactionId);
     }
+
     @Override
     public List<Transaction> getAccountTransactions(String username, Long accountId) {
         log.info("Getting transactions for account {} for user {}", accountId, username);

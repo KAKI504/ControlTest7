@@ -3,6 +3,7 @@ package org.example.controltest7.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.controltest7.dto.AccountCreateDto;
+import org.example.controltest7.dto.DepositDto;
 import org.example.controltest7.model.Account;
 import org.example.controltest7.service.AccountService;
 import org.springframework.http.ResponseEntity;
@@ -39,5 +40,14 @@ public class AccountController {
             @RequestParam Long accountId) {
         BigDecimal balance = accountService.getAccountBalance(userDetails.getUsername(), accountId);
         return ResponseEntity.ok(balance);
+    }
+
+    @PostMapping("/accounts/{accountId}/balance")
+    public ResponseEntity<String> depositFunds(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long accountId,
+            @Valid @RequestBody DepositDto depositDto) {
+        accountService.depositFunds(userDetails.getUsername(), accountId, depositDto.getAmount());
+        return ResponseEntity.ok("Funds deposited successfully");
     }
 }

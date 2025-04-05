@@ -70,4 +70,30 @@ public class AccountServiceImpl implements AccountService {
 
         return account.getBalance();
     }
+
+
+    @Override
+    @Transactional
+    public void depositFunds(String username, Long accountId, BigDecimal amount) {
+        log.info("Depositing {} to account {} for user {}", amount, accountId, username);
+
+        User user = userDao.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
+
+        Account account = accountDao.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException("Account not found: " + accountId));
+
+        if (!account.getUserId().equals(user.getId())) {
+            log.warn("User {} trying to access account that doesn't belong to them", username);
+            throw new RuntimeException("Account does not belong to user");
+        }
+
+        BigDecimal newBalance = account.getBalance().add(amount);
+        log.info("Updating balance from {} to {}", account.getBalance(), newBalance);
+
+        accountDao.updateBalance(accountId, newBalance);
+        log.info("Funds deposited successfully");
+    }
+
+
 }
